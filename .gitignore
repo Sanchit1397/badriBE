@@ -1,4 +1,4 @@
 .env
 node_modules
 api/dist
-api/node_modules.env
+api/node_modules
