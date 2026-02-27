@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { User } from '../models/User';
 import { hashPassword, verifyJwt, verifyPassword } from '../lib/auth';
 import { withRequestContext } from '../lib/logger';
+import { findUserByEmail, normalizeEmail } from '../services/authService';
 
 const router = Router();
 
@@ -38,7 +39,7 @@ router.post('/bootstrap', async (req, res) => {
   const existingAdmin = await User.findOne({ role: 'admin' });
   if (existingAdmin) return res.status(409).json({ error: 'Admin already exists' });
   const passwordHash = await hashPassword(password);
-  const user = await User.create({ name, email, passwordHash, role: 'admin' });
+  const user = await User.create({ name, email: normalizeEmail(email), passwordHash, role: 'admin' });
   log.info({ uid: user._id.toString() }, 'admin.bootstrap:success');
   return res.status(201).json({ ok: true, admin: { id: user._id, email: user.email, name: user.name, role: user.role } });
 });
@@ -70,10 +71,10 @@ router.post('/settings', requireAdmin, async (req, res) => {
   const user = await User.findById(uid);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
-  if (email && email !== user.email) {
-    const exists = await User.findOne({ email });
+  if (email && normalizeEmail(email) !== normalizeEmail(user.email)) {
+    const exists = await findUserByEmail(email);
     if (exists) return res.status(409).json({ error: 'Email already in use' });
-    user.email = email;
+    user.email = normalizeEmail(email);
   }
 
   if (newPassword) {

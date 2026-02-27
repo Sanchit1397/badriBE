@@ -4,6 +4,7 @@ import { Order } from '../models/Order';
 import { errors } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { hashPassword, verifyPassword } from '../lib/auth';
+import { findUserByEmail, normalizeEmail } from './authService';
 
 export async function getUserProfile(userId: string) {
   logger.info({ userId }, 'profileService.getUserProfile:start');
@@ -32,11 +33,11 @@ export async function updateUserProfile(userId: string, updates: { name?: string
   const user = await User.findById(userId);
   if (!user) throw errors.notFound('User not found');
   
-  // Check if email is being changed and if it's already in use
-  if (updates.email && updates.email !== user.email) {
-    const existing = await User.findOne({ email: updates.email });
+  // Check if email is being changed and if it's already in use (case-insensitive)
+  if (updates.email && normalizeEmail(updates.email) !== normalizeEmail(user.email)) {
+    const existing = await findUserByEmail(updates.email);
     if (existing) throw errors.conflict('Email already in use');
-    user.email = updates.email;
+    user.email = normalizeEmail(updates.email);
     // Note: In production, you might want to re-verify the email
     user.isVerified = false; // Force re-verification for email changes
   }

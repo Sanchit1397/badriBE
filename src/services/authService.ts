@@ -7,20 +7,32 @@ import { sendMail } from '../lib/mail';
 import { buildVerifyEmailTemplate } from '../mail/templates/verifyEmail';
 import { buildResetPasswordTemplate } from '../mail/templates/resetPassword';
 
+/** Normalize email for case-insensitive handling: trim + lowercase */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/** Find user by email (case-insensitive) */
+export function findUserByEmail(email: string) {
+  const normalized = normalizeEmail(email);
+  return User.findOne({ email: { $regex: new RegExp(`^${normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+}
+
 export async function registerUser(params: { name: string; email: string; password: string; phone?: string; address?: string }) {
   logger.info({ email: params.email }, 'authService.registerUser:start');
   const { name, email, password, phone, address } = params;
+  const emailNormalized = normalizeEmail(email);
   try {
-    const existing = await User.findOne({ email });
+    const existing = await findUserByEmail(email);
     if (existing) throw errors.conflict('Email already in use');
     const passwordHash = await hashPassword(password);
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const user = await User.create({ name, email, passwordHash, phone, address, role: 'user', isVerified: false, verificationToken, verificationTokenExpiresAt });
+    const user = await User.create({ name, email: emailNormalized, passwordHash, phone, address, role: 'user', isVerified: false, verificationToken, verificationTokenExpiresAt });
     const frontend = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
     const verificationLink = `${frontend}/auth/verify?token=${verificationToken}`;
     const tpl = buildVerifyEmailTemplate({ name, link: verificationLink });
-    await sendMail({ to: email, subject: tpl.subject, html: tpl.html });
+    await sendMail({ to: emailNormalized, subject: tpl.subject, html: tpl.html });
     logger.info({ uid: user._id.toString() }, 'authService.registerUser:success');
     return { verificationLink, user };
   } catch (err) {
@@ -36,7 +48,7 @@ export async function loginUser(params: { email: string; password: string }) {
   logger.info({ email: params.email }, 'authService.loginUser:start');
   const { email, password } = params;
   try {
-    const user = await User.findOne({ email });
+    const user = await findUserByEmail(email);
     if (!user) throw errors.unauthorized('Invalid email or password');
     if (!user.isVerified) throw errors.forbidden('Email not verified');
     const ok = await verifyPassword(password, user.passwordHash);
@@ -67,7 +79,7 @@ export async function verifyEmailToken(token: string) {
 
 export async function resendVerificationEmail(email: string) {
   logger.info({ email }, 'authService.resendVerification:start');
-  const user = await User.findOne({ email });
+  const user = await findUserByEmail(email);
   if (!user) throw errors.notFound('Account not found');
   if (user.isVerified) throw errors.conflict('Email already verified');
   const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -78,14 +90,14 @@ export async function resendVerificationEmail(email: string) {
   const frontend = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
   const verificationLink = `${frontend}/auth/verify?token=${verificationToken}`;
   const tpl = buildVerifyEmailTemplate({ name: user.name, link: verificationLink });
-  await sendMail({ to: email, subject: tpl.subject, html: tpl.html });
+  await sendMail({ to: user.email, subject: tpl.subject, html: tpl.html });
   logger.info({ uid: user._id.toString() }, 'authService.resendVerification:sent');
   return { ok: true } as const;
 }
 
 export async function startPasswordReset(email: string) {
   logger.info({ email }, 'authService.startPasswordReset:start');
-  const user = await User.findOne({ email });
+  const user = await findUserByEmail(email);
   if (!user) return { ok: true } as const; // do not leak existence
   if (!user.isVerified) return { ok: true } as const; // enforce verification first
   const resetPasswordToken = crypto.randomBytes(32).toString('hex');
@@ -96,7 +108,7 @@ export async function startPasswordReset(email: string) {
   const frontend = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
   const link = `${frontend}/auth/reset?token=${resetPasswordToken}`;
   const tpl = buildResetPasswordTemplate({ name: user.name, link });
-  await sendMail({ to: email, subject: tpl.subject, html: tpl.html });
+  await sendMail({ to: user.email, subject: tpl.subject, html: tpl.html });
   logger.info({ uid: user._id.toString() }, 'authService.startPasswordReset:sent');
   return { ok: true } as const;
 }
