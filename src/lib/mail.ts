@@ -1,12 +1,31 @@
 import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 import { logger } from './logger';
 import type { SendMailParams } from '../mail/types';
 
 let cachedTransporter: nodemailer.Transporter | null = null;
 
 /**
+ * Send email via SendGrid API (uses HTTPS, works on Render free tier)
+ * Render blocks SMTP ports 25/465/587 on free tier
+ */
+async function sendViaSendGridApi(params: SendMailParams): Promise<void> {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) throw new Error('SendGrid configuration missing: SENDGRID_API_KEY required');
+  sgMail.setApiKey(apiKey);
+  const fromAddress = process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukan'} <noreply@badrikidukan.com>`;
+  await sgMail.send({
+    to: params.to,
+    from: fromAddress,
+    subject: params.subject,
+    html: params.html
+  });
+  logger.info({ to: params.to }, 'mail:sent');
+}
+
+/**
  * Get email transporter based on EMAIL_PROVIDER environment variable
- * Supports: ethereal (dev), gmail, ses (AWS), sendgrid, smtp (custom)
+ * Supports: ethereal (dev), gmail, ses (AWS), sendgrid (API), smtp (custom)
  */
 async function getTransporter(): Promise<nodemailer.Transporter> {
   if (cachedTransporter) return cachedTransporter;
@@ -50,23 +69,6 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
       break;
     }
 
-    case 'sendgrid': {
-      if (!process.env.SENDGRID_API_KEY) {
-        throw new Error('SendGrid configuration missing: SENDGRID_API_KEY required');
-      }
-      cachedTransporter = nodemailer.createTransport({
-        host: 'smtp.sendgrid.net',
-        port: 587,
-        secure: false,
-        auth: {
-          user: 'apikey',
-          pass: process.env.SENDGRID_API_KEY
-        }
-      });
-      logger.info('mail:using-sendgrid');
-      break;
-    }
-
     case 'smtp': {
       // Custom SMTP server
       if (!process.env.SMTP_HOST) {
@@ -106,6 +108,11 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
  * Send an email using configured provider
  */
 export async function sendMail(params: SendMailParams): Promise<void> {
+  const provider = (process.env.EMAIL_PROVIDER || 'ethereal').toLowerCase();
+  if (provider === 'sendgrid') {
+    await sendViaSendGridApi(params);
+    return;
+  }
   const transporter = await getTransporter();
   
   const fromAddress = process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukan'} <noreply@badrikidukan.com>`;
