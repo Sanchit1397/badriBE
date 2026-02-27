@@ -1,3 +1,4 @@
+import { getPrimaryFrontendOrigin } from '../../lib/urls';
 import { baseEmailTemplate, emailComponents } from './base';
 
 interface OrderItem {
@@ -19,7 +20,7 @@ interface AdminNewOrderData {
 
 export function adminNewOrderEmail(data: AdminNewOrderData): { subject: string; html: string } {
   const storeName = process.env.APP_NAME || 'BadrikiDukan';
-  const frontendUrl = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+  const frontendUrl = getPrimaryFrontendOrigin();
   const orderUrl = `${frontendUrl}/admin/orders/${data.orderId}`;
 
   const content = `

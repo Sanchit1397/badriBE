@@ -4,6 +4,7 @@ import { hashPassword, signJwt, verifyPassword } from '../lib/auth';
 import { errors } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { sendMail } from '../lib/mail';
+import { getPrimaryFrontendOrigin } from '../lib/urls';
 import { buildVerifyEmailTemplate } from '../mail/templates/verifyEmail';
 import { buildResetPasswordTemplate } from '../mail/templates/resetPassword';
 
@@ -29,7 +30,7 @@ export async function registerUser(params: { name: string; email: string; passwo
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const user = await User.create({ name, email: emailNormalized, passwordHash, phone, address, role: 'user', isVerified: false, verificationToken, verificationTokenExpiresAt });
-    const frontend = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+    const frontend = getPrimaryFrontendOrigin();
     const verificationLink = `${frontend}/auth/verify?token=${verificationToken}`;
     const tpl = buildVerifyEmailTemplate({ name, link: verificationLink });
     await sendMail({ to: emailNormalized, subject: tpl.subject, html: tpl.html });
@@ -87,7 +88,7 @@ export async function resendVerificationEmail(email: string) {
   user.verificationToken = verificationToken;
   user.verificationTokenExpiresAt = verificationTokenExpiresAt;
   await user.save();
-  const frontend = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+  const frontend = getPrimaryFrontendOrigin();
   const verificationLink = `${frontend}/auth/verify?token=${verificationToken}`;
   const tpl = buildVerifyEmailTemplate({ name: user.name, link: verificationLink });
   await sendMail({ to: user.email, subject: tpl.subject, html: tpl.html });
@@ -105,7 +106,7 @@ export async function startPasswordReset(email: string) {
   user.resetPasswordToken = resetPasswordToken;
   user.resetPasswordExpiresAt = resetPasswordExpiresAt;
   await user.save();
-  const frontend = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+  const frontend = getPrimaryFrontendOrigin();
   const link = `${frontend}/auth/reset?token=${resetPasswordToken}`;
   const tpl = buildResetPasswordTemplate({ name: user.name, link });
   await sendMail({ to: user.email, subject: tpl.subject, html: tpl.html });

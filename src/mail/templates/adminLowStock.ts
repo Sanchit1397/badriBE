@@ -1,3 +1,4 @@
+import { getPrimaryFrontendOrigin } from '../../lib/urls';
 import { baseEmailTemplate, emailComponents } from './base';
 
 interface LowStockProduct {
@@ -13,7 +14,7 @@ interface AdminLowStockData {
 
 export function adminLowStockEmail(data: AdminLowStockData): { subject: string; html: string } {
   const storeName = process.env.APP_NAME || 'BadrikiDukan';
-  const frontendUrl = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+  const frontendUrl = getPrimaryFrontendOrigin();
 
   const productsList = data.products.map(product => {
     const productUrl = `${frontendUrl}/admin/products/${product.slug}`;
