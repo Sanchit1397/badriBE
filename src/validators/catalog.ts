@@ -1,31 +1,31 @@
 import { z } from 'zod';
 
 export const createCategorySchema = z.object({
-  name: z.string().min(2),
-  slug: z.string().min(2)
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  slug: z.string().min(2, 'Slug must be at least 2 characters (e.g. category-name)')
 });
 
 export const updateCategorySchema = z.object({
-  name: z.string().min(2).optional(),
-  slug: z.string().min(2).optional()
+  name: z.string().min(2, 'Name must be at least 2 characters').optional(),
+  slug: z.string().min(2, 'Slug must be at least 2 characters (e.g. category-name)').optional()
 });
 
 export const createProductSchema = z.object({
-  name: z.string().min(2),
-  slug: z.string().min(2),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  slug: z.string().min(2, 'Slug must be at least 2 characters (e.g. product-name)'),
   description: z.string().optional(),
   price: z.number().positive('Price must be greater than 0'),
   imageUrl: z.string().url().optional(),
-  categorySlug: z.string().min(2)
+  categorySlug: z.string().min(2, 'Please select a category')
 });
 
 export const updateProductSchema = z.object({
-  name: z.string().min(2).optional(),
-  slug: z.string().min(2).optional(),
+  name: z.string().min(2, 'Name must be at least 2 characters').optional(),
+  slug: z.string().min(2, 'Slug must be at least 2 characters (e.g. product-name)').optional(),
   description: z.string().optional(),
   price: z.number().positive('Price must be greater than 0').optional(),
   imageUrl: z.string().url().optional(),
-  categorySlug: z.string().min(2).optional(),
+  categorySlug: z.string().min(2, 'Please select a category').optional(),
   published: z.boolean().optional(),
   images: z
     .array(
