@@ -20,7 +20,7 @@ interface OrderConfirmationData {
 }
 
 export function orderConfirmationEmail(data: OrderConfirmationData): { subject: string; html: string } {
-  const storeName = process.env.APP_NAME || 'BadrikiDukan';
+  const storeName = process.env.APP_NAME || 'BadrikiDukaan';
   const estimatedTime = data.estimatedDeliveryTime || '30-45 minutes';
 
   const content = `

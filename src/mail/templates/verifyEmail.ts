@@ -3,7 +3,7 @@ import type { MailContent } from '../types';
 export function buildVerifyEmailTemplate(params: { name: string; link: string }): MailContent {
   const { name, link } = params;
   return {
-    subject: 'Verify your email - BadrikiDukan',
+    subject: 'Verify your email - BadrikiDukaan',
     html: `
       <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:auto">
         <h2>Hi ${name},</h2>

@@ -39,7 +39,7 @@ const statusConfig: Record<OrderStatus, { emoji: string; color: 'green' | 'blue'
 
 export function orderStatusUpdateEmail(data: OrderStatusUpdateData): { subject: string; html: string } {
   const config = statusConfig[data.status];
-  const storeName = process.env.APP_NAME || 'BadrikiDukan';
+  const storeName = process.env.APP_NAME || 'BadrikiDukaan';
 
   let additionalInfo = '';
   if (data.status === 'shipped' && data.address) {

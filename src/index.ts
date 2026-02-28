@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import { initCloudinary } from './lib/cloudinary';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import authRouter from './routes/auth';
@@ -15,6 +16,8 @@ import { errorMiddleware } from './lib/errors';
 import { logger } from './lib/logger';
 import { requestIdMiddleware } from './middleware/requestId';
 import { preloadSettings } from './services/settingsService';
+
+initCloudinary();
 
 const app = express();
 app.use(express.json());

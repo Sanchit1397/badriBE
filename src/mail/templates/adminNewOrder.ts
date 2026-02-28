@@ -19,7 +19,7 @@ interface AdminNewOrderData {
 }
 
 export function adminNewOrderEmail(data: AdminNewOrderData): { subject: string; html: string } {
-  const storeName = process.env.APP_NAME || 'BadrikiDukan';
+  const storeName = process.env.APP_NAME || 'BadrikiDukaan';
   const frontendUrl = getPrimaryFrontendOrigin();
   const orderUrl = `${frontendUrl}/admin/orders/${data.orderId}`;
 

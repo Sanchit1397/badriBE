@@ -111,7 +111,7 @@ const defaultSettings = [
   // Business Settings
   {
     key: 'store_name',
-    value: 'BadrikiDukan',
+    value: 'BadrikiDukaan',
     type: 'string' as const,
     category: 'business' as const,
     label: 'Store Name',

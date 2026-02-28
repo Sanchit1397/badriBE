@@ -13,7 +13,7 @@ interface BaseTemplateParams {
 }
 
 export function baseEmailTemplate(params: BaseTemplateParams): string {
-  const storeName = params.storeName || process.env.APP_NAME || 'BadrikiDukan';
+  const storeName = params.storeName || process.env.APP_NAME || 'BadrikiDukaan';
   const storeEmail = params.storeEmail || process.env.STORE_EMAIL || 'contact@badrikidukan.com';
   const storePhone = params.storePhone || process.env.STORE_PHONE || '';
 

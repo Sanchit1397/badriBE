@@ -13,7 +13,7 @@ async function sendViaSendGridApi(params: SendMailParams): Promise<void> {
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey) throw new Error('SendGrid configuration missing: SENDGRID_API_KEY required');
   sgMail.setApiKey(apiKey);
-  const fromAddress = process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukan'} <noreply@badrikidukan.com>`;
+  const fromAddress = process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukaan'} <noreply@badrikidukan.com>`;
   await sgMail.send({
     to: params.to,
     from: fromAddress,
@@ -115,7 +115,7 @@ export async function sendMail(params: SendMailParams): Promise<void> {
   }
   const transporter = await getTransporter();
   
-  const fromAddress = process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukan'} <noreply@badrikidukan.com>`;
+  const fromAddress = process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukaan'} <noreply@badrikidukan.com>`;
   
   const info = await transporter.sendMail({
     from: fromAddress,

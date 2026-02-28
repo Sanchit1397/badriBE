@@ -1,30 +1,28 @@
 import type { Request, Response } from 'express';
-import crypto from 'crypto';
-import path from 'path';
-import fs from 'fs/promises';
 import { errors } from '../lib/errors';
-import { Media } from '../models/Media';
+import { withRequestContext } from '../lib/logger';
+import { uploadImage as uploadImageService } from '../services/uploadService';
+
+const ALLOWED_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_SIZE = 5 * 1024 * 1024;
 
 export async function uploadImage(req: Request, res: Response) {
-  const file = (req as any).file as Express.Multer.File | undefined;
+  const log = withRequestContext(req.headers as Record<string, string | undefined>);
+  log.info('uploadImage:start');
+
+  const file = (req as Request & { file?: Express.Multer.File }).file;
   if (!file) throw errors.badRequest('No file uploaded');
-  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!allowed.includes(file.mimetype)) throw errors.badRequest('Unsupported file type');
-  if (file.size > 5 * 1024 * 1024) throw errors.badRequest('File too large');
-  const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
-  await Media.updateOne(
-    { hash },
-    { $setOnInsert: { filename: file.originalname, mimeType: file.mimetype, size: file.size } },
-    { upsert: true }
-  );
-  const uploadRoot = path.resolve(process.cwd(), 'uploads');
-  await fs.mkdir(uploadRoot, { recursive: true });
-  const abs = path.join(uploadRoot, hash);
-  try {
-    await fs.access(abs);
-  } catch {
-    await fs.writeFile(abs, file.buffer);
-  }
+  if (!ALLOWED_MIMETYPES.includes(file.mimetype)) throw errors.badRequest('Unsupported file type');
+  if (file.size > MAX_SIZE) throw errors.badRequest('File too large');
+
+  const { hash } = await uploadImageService({
+    buffer: file.buffer,
+    mimetype: file.mimetype,
+    originalname: file.originalname,
+    size: file.size
+  });
+
+  log.info({ hash }, 'uploadImage:success');
   return res.status(201).json({ hash });
 }
 

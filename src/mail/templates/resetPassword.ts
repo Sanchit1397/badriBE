@@ -3,7 +3,7 @@ import type { MailContent } from '../types';
 export function buildResetPasswordTemplate(params: { name: string; link: string }): MailContent {
   const { name, link } = params;
   return {
-    subject: 'Reset your password - BadrikiDukan',
+    subject: 'Reset your password - BadrikiDukaan',
     html: `
       <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:auto">
         <h2>Hi ${name},</h2>

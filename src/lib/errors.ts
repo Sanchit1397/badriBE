@@ -46,7 +46,8 @@ export const errors = {
   forbidden: (message = 'Forbidden') => new AppError(403, 'FORBIDDEN', message),
   notFound: (message = 'Not found') => new AppError(404, 'NOT_FOUND', message),
   conflict: (message = 'Conflict') => new AppError(409, 'CONFLICT', message),
-  unprocessable: (message = 'Unprocessable entity', details?: unknown) => new AppError(422, 'UNPROCESSABLE_ENTITY', message, details)
+  unprocessable: (message = 'Unprocessable entity', details?: unknown) => new AppError(422, 'UNPROCESSABLE_ENTITY', message, details),
+  internal: (message = 'Internal error') => new AppError(500, 'INTERNAL_ERROR', message)
 };
 
 

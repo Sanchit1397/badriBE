@@ -13,7 +13,7 @@ interface AdminLowStockData {
 }
 
 export function adminLowStockEmail(data: AdminLowStockData): { subject: string; html: string } {
-  const storeName = process.env.APP_NAME || 'BadrikiDukan';
+  const storeName = process.env.APP_NAME || 'BadrikiDukaan';
   const frontendUrl = getPrimaryFrontendOrigin();
 
   const productsList = data.products.map(product => {
