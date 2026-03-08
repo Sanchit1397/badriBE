@@ -1,18 +1,26 @@
 import { z } from 'zod';
 
+const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SLUG_ERROR = 'Slug must use lowercase letters and hyphens only (e.g. product-name)';
+
+const slugSchema = z
+  .string()
+  .min(2, 'Slug must be at least 2 characters')
+  .regex(SLUG_REGEX, SLUG_ERROR);
+
 export const createCategorySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  slug: z.string().min(2, 'Slug must be at least 2 characters (e.g. category-name)')
+  slug: slugSchema
 });
 
 export const updateCategorySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
-  slug: z.string().min(2, 'Slug must be at least 2 characters (e.g. category-name)').optional()
+  slug: slugSchema.optional()
 });
 
 export const createProductSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  slug: z.string().min(2, 'Slug must be at least 2 characters (e.g. product-name)'),
+  slug: slugSchema,
   description: z.string().optional(),
   price: z.number().positive('Price must be greater than 0'),
   imageUrl: z.string().url().optional(),
@@ -21,7 +29,7 @@ export const createProductSchema = z.object({
 
 export const updateProductSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
-  slug: z.string().min(2, 'Slug must be at least 2 characters (e.g. product-name)').optional(),
+  slug: slugSchema.optional(),
   description: z.string().optional(),
   price: z.number().positive('Price must be greater than 0').optional(),
   imageUrl: z.string().url().optional(),

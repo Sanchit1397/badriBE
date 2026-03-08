@@ -5,6 +5,14 @@ import { createCategorySchema, updateCategorySchema, createProductSchema, update
 import { listCategories, getCategoryBySlug, createCategory, updateCategory, deleteCategory } from '../services/categoryService';
 import { listProducts, getProductBySlug, createProduct, updateProduct, deleteProduct } from '../services/productService';
 
+function decodeSlug(slug: string): string {
+  try {
+    return decodeURIComponent(slug);
+  } catch {
+    return slug;
+  }
+}
+
 // Categories
 export async function listCategoriesCtrl(_req: Request, res: Response) {
   const items = await listCategories();
@@ -12,7 +20,7 @@ export async function listCategoriesCtrl(_req: Request, res: Response) {
 }
 
 export async function getCategoryCtrl(req: Request, res: Response) {
-  const slug = req.params.slug;
+  const slug = decodeSlug(req.params.slug);
   const cat = await getCategoryBySlug(slug);
   return res.json({ category: cat });
 }
@@ -25,7 +33,7 @@ export async function createCategoryCtrl(req: Request, res: Response) {
 }
 
 export async function updateCategoryCtrl(req: Request, res: Response) {
-  const slug = req.params.slug;
+  const slug = decodeSlug(req.params.slug);
   const parsed = updateCategorySchema.safeParse(req.body);
   if (!parsed.success) throw errors.unprocessable('Invalid data', parsed.error.flatten());
   const cat = await updateCategory(slug, parsed.data);
@@ -33,7 +41,7 @@ export async function updateCategoryCtrl(req: Request, res: Response) {
 }
 
 export async function deleteCategoryCtrl(req: Request, res: Response) {
-  const slug = req.params.slug;
+  const slug = decodeSlug(req.params.slug);
   const ok = await deleteCategory(slug);
   return res.json(ok);
 }
@@ -47,7 +55,7 @@ export async function listProductsCtrl(req: Request, res: Response) {
 }
 
 export async function getProductCtrl(req: Request, res: Response) {
-  const slug = req.params.slug;
+  const slug = decodeSlug(req.params.slug);
   const p = await getProductBySlug(slug);
   return res.json({ product: p });
 }
@@ -62,7 +70,7 @@ export async function createProductCtrl(req: Request, res: Response) {
 }
 
 export async function updateProductCtrl(req: Request, res: Response) {
-  const slug = req.params.slug;
+  const slug = decodeSlug(req.params.slug);
   const parsed = updateProductSchema.safeParse(req.body);
   if (!parsed.success) throw errors.unprocessable('Invalid data', parsed.error.flatten());
   const p = await updateProduct(slug, parsed.data);
@@ -70,7 +78,7 @@ export async function updateProductCtrl(req: Request, res: Response) {
 }
 
 export async function deleteProductCtrl(req: Request, res: Response) {
-  const slug = req.params.slug;
+  const slug = decodeSlug(req.params.slug);
   const ok = await deleteProduct(slug);
   return res.json(ok);
 }
