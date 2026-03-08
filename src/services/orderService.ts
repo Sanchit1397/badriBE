@@ -3,6 +3,7 @@ import { Product } from '../models/Product';
 import { Order } from '../models/Order';
 import { errors } from '../lib/errors';
 import { logger } from '../lib/logger';
+import { calculateDiscountedPrice } from '../lib/discount';
 import { getSettingValue } from './settingsService';
 import { sendOrderConfirmationNotification, sendAdminNewOrderNotification } from './notificationService';
 
@@ -27,11 +28,12 @@ export async function createCodOrder(input: CreateOrderInput) {
     throw errors.badRequest(`Products not found: ${missingProducts.join(', ')}`);
   }
 
-  // Build items with current prices; validate inventory if tracking is enabled
+  // Build items with current prices (including discounts); validate inventory if tracking is enabled
   const items = input.items.map((i) => {
     const p = products.find((pp) => pp.slug === i.slug)!;
     if (p.inventory?.track && p.inventory.stock < i.quantity) throw errors.badRequest(`Insufficient stock for ${p.name}`);
-    return { productId: p._id, name: p.name, price: p.price, quantity: i.quantity };
+    const price = calculateDiscountedPrice(p.price, p.discount);
+    return { productId: p._id, name: p.name, price, quantity: i.quantity };
   });
 
   const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
