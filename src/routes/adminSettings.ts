@@ -6,7 +6,8 @@ import {
   updateSettingCtrl,
   createSettingCtrl,
   deleteSettingCtrl,
-  getCacheStatsCtrl
+  getCacheStatsCtrl,
+  seedDefaultSettingsCtrl
 } from '../controllers/settingsController';
 import { requireAdmin } from '../middleware/authz';
 
@@ -22,6 +23,7 @@ router.use(requireAdmin);
 
 // Cache stats (monitoring)
 router.get('/cache/stats', asyncHandler(getCacheStatsCtrl));
+router.post('/seed', asyncHandler(seedDefaultSettingsCtrl));
 
 // Category-based retrieval
 router.get('/category/:category', asyncHandler(getSettingsByCategoryCtrl));

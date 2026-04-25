@@ -8,7 +8,8 @@ import {
   updateSetting,
   createSetting,
   deleteSetting,
-  getCacheStats
+  getCacheStats,
+  seedMissingDefaultSettings
 } from '../services/settingsService';
 import { z } from 'zod';
 
@@ -145,5 +146,17 @@ export async function getCacheStatsCtrl(req: Request, res: Response) {
 
   log.info(stats, 'settings.getCacheStats:success');
   return res.json(stats);
+}
+
+/**
+ * POST /admin/settings/seed
+ * Seed missing default settings (idempotent)
+ */
+export async function seedDefaultSettingsCtrl(req: Request, res: Response) {
+  const log = withRequestContext(req.headers as any);
+  log.info('settings.seed:start');
+  const result = await seedMissingDefaultSettings();
+  log.info(result, 'settings.seed:success');
+  return res.json({ ok: true, ...result });
 }
 
