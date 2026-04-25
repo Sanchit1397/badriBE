@@ -38,8 +38,6 @@ export async function updateUserProfile(userId: string, updates: { name?: string
     const existing = await findUserByEmail(updates.email);
     if (existing) throw errors.conflict('Email already in use');
     user.email = normalizeEmail(updates.email);
-    // Note: In production, you might want to re-verify the email
-    user.isVerified = false; // Force re-verification for email changes
   }
   
   if (updates.name) {

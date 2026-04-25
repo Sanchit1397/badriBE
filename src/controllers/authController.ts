@@ -9,13 +9,14 @@ export async function register(req: Request, res: Response) {
   log.info({ path: '/auth/register' }, 'register:start');
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) throw errors.unprocessable('Invalid data', parsed.error.flatten());
-  const { verificationLink } = await registerUser(parsed.data);
-  log.info({ verificationLink }, 'register:verification_link');
+  // Temporarily disabled: exposing verification link in response.
+  // const { verificationLink } = await registerUser(parsed.data);
+  await registerUser(parsed.data);
   const response: Record<string, unknown> = {
     ok: true,
-    message: 'Registration successful. Please verify your email before logging in.'
+    message: 'Registration successful. You can now log in.'
   };
-  if (process.env.NODE_ENV !== 'production') response.verificationLink = verificationLink;
+  // if (process.env.NODE_ENV !== 'production') response.verificationLink = verificationLink;
   log.info('register:success');
   return res.status(201).json(response);
 }
