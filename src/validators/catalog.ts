@@ -24,7 +24,44 @@ export const createProductSchema = z.object({
   description: z.string().optional(),
   price: z.number().positive('Price must be greater than 0'),
   imageUrl: z.string().url().optional(),
-  categorySlug: z.string().min(2, 'Please select a category')
+  categorySlug: z.string().min(2, 'Please select a category'),
+  published: z.boolean().optional(),
+  images: z
+    .array(
+      z.object({
+        hash: z.string().min(10),
+        alt: z.string().optional(),
+        primary: z.boolean().optional()
+      })
+    )
+    .optional(),
+  seo: z
+    .object({
+      title: z.string().optional(),
+      description: z.string().optional()
+    })
+    .optional(),
+  inventory: z
+    .object({
+      track: z.boolean(),
+      stock: z.number().int().min(0)
+    })
+    .optional(),
+  discount: z
+    .object({
+      type: z.enum(['percentage', 'fixed']),
+      value: z.number().min(0),
+      active: z.boolean()
+    })
+    .optional()
+    .refine(
+      (data) => {
+        if (!data) return true;
+        if (data.type === 'percentage' && data.value > 100) return false;
+        return true;
+      },
+      { message: 'Percentage discount cannot exceed 100%' }
+    )
 });
 
 export const updateProductSchema = z.object({

@@ -38,7 +38,19 @@ export async function getProductBySlug(slug: string) {
   return p;
 }
 
-export async function createProduct(input: { name: string; slug: string; description?: string; price: number; imageUrl?: string; categorySlug: string }) {
+export async function createProduct(input: {
+  name: string;
+  slug: string;
+  description?: string;
+  price: number;
+  imageUrl?: string;
+  categorySlug: string;
+  published?: boolean;
+  images?: { hash: string; alt?: string; primary?: boolean }[];
+  seo?: { title?: string; description?: string };
+  inventory?: { track: boolean; stock: number };
+  discount?: { type: 'percentage' | 'fixed'; value: number; active: boolean };
+}) {
   logger.info({ slug: input.slug }, 'productService.createProduct');
   const exists = await Product.findOne({ $or: [{ slug: input.slug }, { name: input.name }] });
   if (exists) throw errors.conflict('Product already exists');
@@ -50,7 +62,12 @@ export async function createProduct(input: { name: string; slug: string; descrip
     description: input.description,
     price: input.price,
     imageUrl: input.imageUrl,
-    categoryId: cat._id
+    categoryId: cat._id,
+    published: input.published ?? false,
+    images: input.images ?? [],
+    seo: input.seo,
+    inventory: input.inventory,
+    discount: input.discount
   });
   return p;
 }
