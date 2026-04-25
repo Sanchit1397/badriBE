@@ -5,7 +5,7 @@ import { logger } from '../lib/logger';
 
 export async function listCategories() {
   logger.info('categoryService.listCategories');
-  const items = await Category.find({}).sort({ name: 1 });
+  const items = await Category.find({}).sort({ displayOrder: 1, name: 1 });
   return items;
 }
 

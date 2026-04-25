@@ -10,12 +10,18 @@ const slugSchema = z
 
 export const createCategorySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  slug: slugSchema
+  slug: slugSchema,
+  icon: z.string().max(16, 'Icon is too long').optional(),
+  displayOrder: z.number().int().min(0).optional(),
+  isActive: z.boolean().optional()
 });
 
 export const updateCategorySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
-  slug: slugSchema.optional()
+  slug: slugSchema.optional(),
+  icon: z.string().max(16, 'Icon is too long').optional(),
+  displayOrder: z.number().int().min(0).optional(),
+  isActive: z.boolean().optional()
 });
 
 export const createProductSchema = z.object({
