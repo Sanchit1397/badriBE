@@ -4,6 +4,7 @@ import { errors } from '../lib/errors';
 import { createCategorySchema, updateCategorySchema, createProductSchema, updateProductSchema, listProductsQuerySchema } from '../validators/catalog';
 import { listCategories, getCategoryBySlug, createCategory, updateCategory, deleteCategory } from '../services/categoryService';
 import { listProducts, getProductBySlug, createProduct, updateProduct, deleteProduct } from '../services/productService';
+import { getSettingValue } from '../services/settingsService';
 
 function decodeSlug(slug: string): string {
   try {
@@ -47,6 +48,41 @@ export async function deleteCategoryCtrl(req: Request, res: Response) {
 }
 
 // Products
+/** Public checkout/cart config (no auth). */
+export async function getStorePublicConfigCtrl(_req: Request, res: Response) {
+  const [
+    minimum_order_value,
+    delivery_base_fee,
+    free_delivery_threshold,
+    max_items_per_order,
+    store_name,
+    store_phone,
+    store_email,
+    store_address
+  ] = await Promise.all([
+    getSettingValue<number>('minimum_order_value', 0),
+    getSettingValue<number>('delivery_base_fee', 50),
+    getSettingValue<number>('free_delivery_threshold', 0),
+    getSettingValue<number>('max_items_per_order', 50),
+    getSettingValue<string>('store_name', 'BadrikiDukaan'),
+    getSettingValue<string>('store_phone', ''),
+    getSettingValue<string>('store_email', ''),
+    getSettingValue<string>('store_address', '')
+  ]);
+  return res.json({
+    config: {
+      minimum_order_value,
+      delivery_base_fee,
+      free_delivery_threshold,
+      max_items_per_order,
+      store_name,
+      store_phone,
+      store_email,
+      store_address
+    }
+  });
+}
+
 export async function listProductsCtrl(req: Request, res: Response) {
   const parsed = listProductsQuerySchema.safeParse(req.query);
   if (!parsed.success) throw errors.unprocessable('Invalid query', parsed.error.flatten());

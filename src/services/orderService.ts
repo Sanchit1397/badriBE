@@ -5,12 +5,12 @@ import { errors } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { calculateDiscountedPrice } from '../lib/discount';
 import { getSettingValue } from './settingsService';
+import { computeDeliveryFeeForSubtotal } from '../lib/storeDelivery';
 import { sendOrderConfirmationNotification, sendAdminNewOrderNotification } from './notificationService';
 
 interface CreateOrderInput {
   userId: string;
   items: { slug: string; quantity: number }[];
-  deliveryFee: number;
   address: string;
   phone: string;
 }
@@ -37,6 +37,13 @@ export async function createCodOrder(input: CreateOrderInput) {
   });
 
   const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+
+  const totalItemQty = input.items.reduce((sum, it) => sum + it.quantity, 0);
+  const maxItemsPerOrder = await getSettingValue<number>('max_items_per_order', 50);
+  if (maxItemsPerOrder > 0 && totalItemQty > maxItemsPerOrder) {
+    logger.warn({ totalItemQty, maxItemsPerOrder }, 'orderService.createCodOrder:tooManyItems');
+    throw errors.badRequest(`This order exceeds the maximum of ${maxItemsPerOrder} items. Please reduce quantities or split your order.`);
+  }
   
   // Check minimum order value
   const minimumOrderValue = await getSettingValue<number>('minimum_order_value', 0);
@@ -44,16 +51,17 @@ export async function createCodOrder(input: CreateOrderInput) {
     logger.warn({ subtotal, minimumOrderValue }, 'orderService.createCodOrder:belowMinimum');
     throw errors.badRequest(`Order total must be at least ₹${minimumOrderValue}. Current subtotal: ₹${subtotal}`);
   }
-  
-  const total = subtotal + input.deliveryFee;
 
-  logger.info({ subtotal, deliveryFee: input.deliveryFee, total, itemCount: items.length, minimumOrderValue }, 'orderService.createCodOrder:creatingOrder');
+  const deliveryFee = await computeDeliveryFeeForSubtotal(subtotal);
+  const total = subtotal + deliveryFee;
+
+  logger.info({ subtotal, deliveryFee, total, itemCount: items.length, minimumOrderValue }, 'orderService.createCodOrder:creatingOrder');
   
   const order = await Order.create({
     userId: new Types.ObjectId(input.userId),
     items,
     subtotal,
-    deliveryFee: input.deliveryFee,
+    deliveryFee,
     total,
     address: input.address,
     phone: input.phone,

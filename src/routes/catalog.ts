@@ -10,7 +10,8 @@ import {
   getProductCtrl,
   createProductCtrl,
   updateProductCtrl,
-  deleteProductCtrl
+  deleteProductCtrl,
+  getStorePublicConfigCtrl
 } from '../controllers/catalogController';
 
 const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
@@ -21,6 +22,7 @@ const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => P
 const router = Router();
 
 // Public endpoints
+router.get('/store-config', asyncHandler(getStorePublicConfigCtrl));
 router.get('/categories', asyncHandler(listCategoriesCtrl));
 router.get('/categories/:slug', asyncHandler(getCategoryCtrl));
 router.get('/products', asyncHandler(listProductsCtrl));
