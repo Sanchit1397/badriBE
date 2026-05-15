@@ -1,9 +1,15 @@
 import nodemailer from 'nodemailer';
 import sgMail from '@sendgrid/mail';
+import { Resend } from 'resend';
 import { logger } from './logger';
 import type { SendMailParams } from '../mail/types';
 
 let cachedTransporter: nodemailer.Transporter | null = null;
+let cachedResend: Resend | null = null;
+
+function getMailFromAddress(): string {
+  return process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukaan'} <onboarding@resend.dev>`;
+}
 
 /**
  * Send email via SendGrid API (uses HTTPS, works on Render free tier)
@@ -19,7 +25,7 @@ async function sendViaSendGridApi(params: SendMailParams): Promise<void> {
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey) throw new Error('SendGrid configuration missing: SENDGRID_API_KEY required');
   sgMail.setApiKey(apiKey);
-  const fromAddress = process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukaan'} <noreply@badrikidukan.com>`;
+  const fromAddress = getMailFromAddress();
   try {
     await sgMail.send({
       to: params.to,
@@ -34,8 +40,31 @@ async function sendViaSendGridApi(params: SendMailParams): Promise<void> {
   logger.info({ to: params.to }, 'mail:sent');
 }
 
+function getResendClient(): Resend {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('Resend configuration missing: RESEND_API_KEY required');
+  if (!cachedResend) cachedResend = new Resend(apiKey);
+  return cachedResend;
+}
+
+async function sendViaResendApi(params: SendMailParams): Promise<void> {
+  const fromAddress = getMailFromAddress();
+  const resend = getResendClient();
+  const { data, error } = await resend.emails.send({
+    from: fromAddress,
+    to: [params.to],
+    subject: params.subject,
+    html: params.html
+  });
+  if (error) {
+    logger.error({ err: error, from: fromAddress, to: params.to }, 'mail:resend-failed');
+    throw new Error(error.message);
+  }
+  logger.info({ to: params.to, id: data?.id }, 'mail:sent');
+}
+
 /**
- * Warn at startup when production email is misconfigured (Render blocks SMTP; use SendGrid API).
+ * Warn at startup when production email is misconfigured (Render blocks SMTP; use HTTPS API).
  */
 export function validateEmailConfig(): void {
   const isProd = process.env.NODE_ENV === 'production';
@@ -45,8 +74,13 @@ export function validateEmailConfig(): void {
 
   if (provider === 'ethereal') {
     logger.error(
-      'mail:config-invalid — EMAIL_PROVIDER is ethereal in production. Set EMAIL_PROVIDER=sendgrid and SENDGRID_API_KEY on Render.'
+      'mail:config-invalid — EMAIL_PROVIDER is ethereal in production. Set EMAIL_PROVIDER=resend and RESEND_API_KEY on Render.'
     );
+    return;
+  }
+
+  if (provider === 'resend' && !process.env.RESEND_API_KEY) {
+    logger.error('mail:config-invalid — EMAIL_PROVIDER=resend but RESEND_API_KEY is missing.');
     return;
   }
 
@@ -55,21 +89,21 @@ export function validateEmailConfig(): void {
     return;
   }
 
-  if ((provider === 'gmail' || provider === 'smtp' || provider === 'ses') && !process.env.SENDGRID_API_KEY) {
+  if (provider === 'gmail' || provider === 'smtp' || provider === 'ses') {
     logger.warn(
       { provider },
-      'mail:config-warning — SMTP-based providers often fail on Render (ports blocked). Prefer EMAIL_PROVIDER=sendgrid.'
+      'mail:config-warning — SMTP-based providers often fail on Render (ports blocked). Prefer EMAIL_PROVIDER=resend or sendgrid.'
     );
   }
 
-  if (provider === 'sendgrid' && !process.env.MAIL_FROM) {
-    logger.warn('mail:config-warning — MAIL_FROM is unset; use a SendGrid-verified sender address.');
+  if ((provider === 'resend' || provider === 'sendgrid') && !process.env.MAIL_FROM) {
+    logger.warn('mail:config-warning — MAIL_FROM is unset; use a verified sender (Resend domain or onboarding@resend.dev for testing).');
   }
 }
 
 /**
  * Get email transporter based on EMAIL_PROVIDER environment variable
- * Supports: ethereal (dev), gmail, ses (AWS), sendgrid (API), smtp (custom)
+ * Supports: ethereal (dev), resend, sendgrid (API), gmail, ses (AWS), smtp (custom)
  */
 async function getTransporter(): Promise<nodemailer.Transporter> {
   if (cachedTransporter) return cachedTransporter;
@@ -154,13 +188,17 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
 export async function sendMail(params: SendMailParams): Promise<void> {
   const provider = (process.env.EMAIL_PROVIDER || 'ethereal').toLowerCase();
   try {
+    if (provider === 'resend') {
+      await sendViaResendApi(params);
+      return;
+    }
     if (provider === 'sendgrid') {
       await sendViaSendGridApi(params);
       return;
     }
     const transporter = await getTransporter();
 
-    const fromAddress = process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukaan'} <noreply@badrikidukan.com>`;
+    const fromAddress = getMailFromAddress();
 
     const info = await transporter.sendMail({
       from: fromAddress,
