@@ -133,8 +133,13 @@ export async function startPasswordReset(email: string) {
   const frontend = getPrimaryFrontendOrigin();
   const link = `${frontend}/auth/reset?token=${resetPasswordToken}`;
   const tpl = buildResetPasswordTemplate({ name: user.name, link });
-  await sendMail({ to: user.email, subject: tpl.subject, html: tpl.html });
-  logger.info({ uid: user._id.toString() }, 'authService.startPasswordReset:sent');
+  try {
+    await sendMail({ to: user.email, subject: tpl.subject, html: tpl.html });
+    logger.info({ uid: user._id.toString() }, 'authService.startPasswordReset:sent');
+  } catch (err) {
+    logger.error({ err, uid: user._id.toString(), email: user.email }, 'authService.startPasswordReset:mailFailed');
+    // Do not throw — same response whether or not mail sent (avoids account enumeration + 500 for users).
+  }
   return { ok: true } as const;
 }
 

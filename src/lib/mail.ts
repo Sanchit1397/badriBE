@@ -9,18 +9,62 @@ let cachedTransporter: nodemailer.Transporter | null = null;
  * Send email via SendGrid API (uses HTTPS, works on Render free tier)
  * Render blocks SMTP ports 25/465/587 on free tier
  */
+function formatSendGridError(err: unknown): string {
+  const body = (err as { response?: { body?: unknown } })?.response?.body;
+  if (body) return JSON.stringify(body);
+  return err instanceof Error ? err.message : String(err);
+}
+
 async function sendViaSendGridApi(params: SendMailParams): Promise<void> {
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey) throw new Error('SendGrid configuration missing: SENDGRID_API_KEY required');
   sgMail.setApiKey(apiKey);
   const fromAddress = process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukaan'} <noreply@badrikidukan.com>`;
-  await sgMail.send({
-    to: params.to,
-    from: fromAddress,
-    subject: params.subject,
-    html: params.html
-  });
+  try {
+    await sgMail.send({
+      to: params.to,
+      from: fromAddress,
+      subject: params.subject,
+      html: params.html
+    });
+  } catch (err) {
+    logger.error({ err: formatSendGridError(err), from: fromAddress, to: params.to }, 'mail:sendgrid-failed');
+    throw err;
+  }
   logger.info({ to: params.to }, 'mail:sent');
+}
+
+/**
+ * Warn at startup when production email is misconfigured (Render blocks SMTP; use SendGrid API).
+ */
+export function validateEmailConfig(): void {
+  const isProd = process.env.NODE_ENV === 'production';
+  if (!isProd) return;
+
+  const provider = (process.env.EMAIL_PROVIDER || 'ethereal').toLowerCase();
+
+  if (provider === 'ethereal') {
+    logger.error(
+      'mail:config-invalid — EMAIL_PROVIDER is ethereal in production. Set EMAIL_PROVIDER=sendgrid and SENDGRID_API_KEY on Render.'
+    );
+    return;
+  }
+
+  if (provider === 'sendgrid' && !process.env.SENDGRID_API_KEY) {
+    logger.error('mail:config-invalid — EMAIL_PROVIDER=sendgrid but SENDGRID_API_KEY is missing.');
+    return;
+  }
+
+  if ((provider === 'gmail' || provider === 'smtp' || provider === 'ses') && !process.env.SENDGRID_API_KEY) {
+    logger.warn(
+      { provider },
+      'mail:config-warning — SMTP-based providers often fail on Render (ports blocked). Prefer EMAIL_PROVIDER=sendgrid.'
+    );
+  }
+
+  if (provider === 'sendgrid' && !process.env.MAIL_FROM) {
+    logger.warn('mail:config-warning — MAIL_FROM is unset; use a SendGrid-verified sender address.');
+  }
 }
 
 /**
@@ -109,26 +153,32 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
  */
 export async function sendMail(params: SendMailParams): Promise<void> {
   const provider = (process.env.EMAIL_PROVIDER || 'ethereal').toLowerCase();
-  if (provider === 'sendgrid') {
-    await sendViaSendGridApi(params);
-    return;
-  }
-  const transporter = await getTransporter();
-  
-  const fromAddress = process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukaan'} <noreply@badrikidukan.com>`;
-  
-  const info = await transporter.sendMail({
-    from: fromAddress,
-    ...params
-  });
+  try {
+    if (provider === 'sendgrid') {
+      await sendViaSendGridApi(params);
+      return;
+    }
+    const transporter = await getTransporter();
 
-  // Log preview URL for Ethereal
-  const preview = nodemailer.getTestMessageUrl(info);
-  if (preview) {
-    logger.info({ preview, to: params.to }, 'mail:ethereal-preview');
-    console.log('\n📧 Email Preview URL:', preview, '\n');
-  } else {
-    logger.info({ to: params.to, messageId: info.messageId }, 'mail:sent');
+    const fromAddress = process.env.MAIL_FROM || `${process.env.APP_NAME || 'BadrikiDukaan'} <noreply@badrikidukan.com>`;
+
+    const info = await transporter.sendMail({
+      from: fromAddress,
+      ...params
+    });
+
+    // Log preview URL for Ethereal
+    const preview = nodemailer.getTestMessageUrl(info);
+    if (preview) {
+      logger.info({ preview, to: params.to }, 'mail:ethereal-preview');
+      console.log('\n📧 Email Preview URL:', preview, '\n');
+    } else {
+      logger.info({ to: params.to, messageId: info.messageId }, 'mail:sent');
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error({ provider, to: params.to, err: message }, 'mail:send-failed');
+    throw err;
   }
 }
 

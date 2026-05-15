@@ -16,6 +16,7 @@ import { errorMiddleware } from './lib/errors';
 import { logger } from './lib/logger';
 import { requestIdMiddleware } from './middleware/requestId';
 import { preloadSettings } from './services/settingsService';
+import { validateEmailConfig } from './lib/mail';
 
 initCloudinary();
 
@@ -76,6 +77,7 @@ mongoose
     // Preload settings into cache on startup
     await preloadSettings();
     logger.info('Settings preloaded into cache');
+    validateEmailConfig();
   })
   .catch((err) => {
     logger.error({ err }, 'Mongo connection error');
