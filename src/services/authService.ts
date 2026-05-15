@@ -119,23 +119,37 @@ export async function resendVerificationEmail(email: string) {
   return { ok: true } as const;
 }
 
+const RESET_PASSWORD_EXPIRY_MS = 60 * 60 * 1000;
+
 export async function startPasswordReset(email: string) {
   logger.info({ email }, 'authService.startPasswordReset:start');
   const user = await findUserByEmail(email);
   if (!user) return { ok: true } as const; // do not leak existence
   // Temporarily disabled: password reset gated by email verification.
   // if (!user.isVerified) return { ok: true } as const;
-  const resetPasswordToken = crypto.randomBytes(32).toString('hex');
-  const resetPasswordExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
-  user.resetPasswordToken = resetPasswordToken;
-  user.resetPasswordExpiresAt = resetPasswordExpiresAt;
-  await user.save();
+
+  const now = Date.now();
+  const hasValidToken =
+    !!user.resetPasswordToken &&
+    !!user.resetPasswordExpiresAt &&
+    user.resetPasswordExpiresAt.getTime() > now;
+
+  // Reuse an unexpired token so older emails still work after another forgot request.
+  let resetPasswordToken = hasValidToken ? user.resetPasswordToken! : crypto.randomBytes(32).toString('hex');
+  let resetPasswordExpiresAt = new Date(now + RESET_PASSWORD_EXPIRY_MS);
+
   const frontend = getPrimaryFrontendOrigin();
   const link = `${frontend}/auth/reset?token=${resetPasswordToken}`;
   const tpl = buildResetPasswordTemplate({ name: user.name, link });
   try {
     await sendMail({ to: user.email, subject: tpl.subject, html: tpl.html });
-    logger.info({ uid: user._id.toString() }, 'authService.startPasswordReset:sent');
+    user.resetPasswordToken = resetPasswordToken;
+    user.resetPasswordExpiresAt = resetPasswordExpiresAt;
+    await user.save();
+    logger.info(
+      { uid: user._id.toString(), reusedToken: hasValidToken },
+      'authService.startPasswordReset:sent'
+    );
   } catch (err) {
     logger.error({ err, uid: user._id.toString(), email: user.email }, 'authService.startPasswordReset:mailFailed');
     // Do not throw — same response whether or not mail sent (avoids account enumeration + 500 for users).
@@ -144,9 +158,13 @@ export async function startPasswordReset(email: string) {
 }
 
 export async function completePasswordReset(token: string, password: string) {
-  logger.info('authService.completePasswordReset:start');
-  const user = await User.findOne({ resetPasswordToken: token });
-  if (!user) throw errors.badRequest('Invalid token');
+  const normalizedToken = token.trim();
+  logger.info({ tokenLen: normalizedToken.length }, 'authService.completePasswordReset:start');
+  const user = await User.findOne({ resetPasswordToken: normalizedToken });
+  if (!user) {
+    logger.warn({ tokenLen: normalizedToken.length }, 'authService.completePasswordReset:notFound');
+    throw errors.badRequest('Invalid or expired reset link. Request a new password reset.');
+  }
   if (!user.resetPasswordExpiresAt || user.resetPasswordExpiresAt.getTime() < Date.now()) {
     throw errors.badRequest('Token expired');
   }
