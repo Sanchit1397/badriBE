@@ -5,6 +5,7 @@ import { errors } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { hashPassword, verifyPassword } from '../lib/auth';
 import { findUserByEmail, normalizeEmail } from './authService';
+import { applyOrderSearch } from '../lib/orderSearch';
 
 export async function getUserProfile(userId: string) {
   logger.info({ userId }, 'profileService.getUserProfile:start');
@@ -95,19 +96,18 @@ export async function changeUserPassword(userId: string, currentPassword: string
   return { message: 'Password changed successfully' };
 }
 
-export async function getUserOrders(userId: string) {
-  logger.info({ userId }, 'profileService.getUserOrders:start');
-  
-  const orders = await Order.find({ userId })
-    .sort({ createdAt: -1 }) // Most recent first
-    .populate('items.productId', 'slug name price')
-    .limit(50); // Limit to last 50 orders
-  
-  logger.info({ userId, count: orders.length }, 'profileService.getUserOrders:success');
-  
-  return orders.map(order => ({
+function mapOrderForProfile(order: {
+  _id: { toString(): string };
+  items: { productId?: { slug?: string }; name: string; price: number; quantity: number }[];
+  total: number;
+  status: string;
+  address: string;
+  phone: string;
+  createdAt: Date;
+}) {
+  return {
     _id: order._id.toString(),
-    items: order.items.map((item: any) => ({
+    items: order.items.map((item) => ({
       product: {
         slug: item.productId?.slug || 'unknown',
         name: item.name,
@@ -121,6 +121,34 @@ export async function getUserOrders(userId: string) {
     address: order.address,
     phone: order.phone,
     createdAt: order.createdAt,
-  }));
+  };
+}
+
+export async function getUserOrders(userId: string, options: { page: number; limit: number; q?: string }) {
+  const { page, limit, q } = options;
+  logger.info({ userId, page, limit, q }, 'profileService.getUserOrders:start');
+
+  const skip = (page - 1) * limit;
+  const query: Record<string, unknown> = { userId };
+  await applyOrderSearch(query, q);
+
+  const [orders, total] = await Promise.all([
+    Order.find(query)
+      .sort({ createdAt: -1 })
+      .populate('items.productId', 'slug name price')
+      .skip(skip)
+      .limit(limit),
+    Order.countDocuments(query),
+  ]);
+
+  logger.info({ userId, count: orders.length, total }, 'profileService.getUserOrders:success');
+
+  return {
+    orders: orders.map(mapOrderForProfile),
+    total,
+    page,
+    limit,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+  };
 }
 

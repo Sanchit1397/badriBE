@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { errors } from '../lib/errors';
 import { withRequestContext } from '../lib/logger';
-import { updateProfileSchema, changePasswordSchema } from '../validators/profile';
+import { updateProfileSchema, changePasswordSchema, listUserOrdersQuerySchema } from '../validators/profile';
 import { getUserProfile, updateUserProfile, changeUserPassword, getUserOrders } from '../services/profileService';
 
 export async function getUserProfileCtrl(req: Request, res: Response) {
@@ -52,13 +52,16 @@ export async function changePasswordCtrl(req: Request, res: Response) {
 export async function getUserOrdersCtrl(req: Request, res: Response) {
   const log = withRequestContext(req.headers as any);
   log.info('profile.orders:start');
-  
+
   const userId = (req as any).user?.uid;
   if (!userId) throw errors.unauthorized();
-  
-  const orders = await getUserOrders(userId);
-  log.info({ userId, count: orders.length }, 'profile.orders:success');
-  
-  return res.json({ orders });
+
+  const parsed = listUserOrdersQuerySchema.safeParse(req.query);
+  if (!parsed.success) throw errors.unprocessable('Invalid query', parsed.error.flatten());
+
+  const result = await getUserOrders(userId, parsed.data);
+  log.info({ userId, count: result.orders.length, total: result.total }, 'profile.orders:success');
+
+  return res.json(result);
 }
 

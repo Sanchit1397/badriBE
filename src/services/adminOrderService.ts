@@ -3,9 +3,11 @@ import { Order } from '../models/Order';
 import { errors } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { sendOrderStatusUpdateNotification } from './notificationService';
+import { applyOrderSearch } from '../lib/orderSearch';
 
 interface GetOrdersOptions {
   status?: string;
+  q?: string;
   limit: number;
   page: number;
 }
@@ -13,14 +15,14 @@ interface GetOrdersOptions {
 export async function getAllOrders(options: GetOrdersOptions) {
   logger.info({ options }, 'adminOrderService.getAllOrders:start');
   
-  const { status, limit, page } = options;
+  const { status, q, limit, page } = options;
   const skip = (page - 1) * limit;
-  
-  // Build query
-  const query: any = {};
+
+  const query: Record<string, unknown> = {};
   if (status && status !== 'all') {
     query.status = status;
   }
+  await applyOrderSearch(query, q, { includeUserSearch: true });
   
   // Fetch orders with user details
   const [orders, total] = await Promise.all([

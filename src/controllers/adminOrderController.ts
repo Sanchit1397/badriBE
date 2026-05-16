@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { errors } from '../lib/errors';
 import { withRequestContext } from '../lib/logger';
 import { getAllOrders, getOrderByIdAdmin, updateOrderStatus } from '../services/adminOrderService';
+import { listAdminOrdersQuerySchema } from '../validators/adminOrder';
 import { z } from 'zod';
 
 const updateStatusSchema = z.object({
@@ -13,14 +14,14 @@ const updateStatusSchema = z.object({
 export async function getAllOrdersCtrl(req: Request, res: Response) {
   const log = withRequestContext(req.headers as any);
   log.info('admin.orders.getAll:start');
-  
-  const status = req.query.status as string | undefined;
-  const limit = parseInt(req.query.limit as string) || 50;
-  const page = parseInt(req.query.page as string) || 1;
-  
-  const result = await getAllOrders({ status, limit, page });
+
+  const parsed = listAdminOrdersQuerySchema.safeParse(req.query);
+  if (!parsed.success) throw errors.unprocessable('Invalid query', parsed.error.flatten());
+
+  const { status, q, limit, page } = parsed.data;
+  const result = await getAllOrders({ status, q, limit, page });
   log.info({ count: result.orders.length, total: result.total }, 'admin.orders.getAll:success');
-  
+
   return res.json(result);
 }
 

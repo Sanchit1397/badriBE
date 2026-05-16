@@ -17,7 +17,10 @@ export async function listProducts(params: ListProductsParams) {
   logger.info({ params }, 'productService.listProducts');
   const { q, category, sort = 'new', page = 1, limit = 12, published } = params;
   const filter: Record<string, unknown> = {};
-  if (q) filter.name = { $regex: q, $options: 'i' };
+  if (q) {
+    const nameRegex = { $regex: q, $options: 'i' };
+    filter.$or = [{ name: nameRegex }, { slug: nameRegex }];
+  }
   if (category) {
     const cat = await Category.findOne({ slug: category });
     if (cat) filter.categoryId = cat._id;
